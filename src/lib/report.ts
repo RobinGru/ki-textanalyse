@@ -18,6 +18,8 @@ export function exportedReport(report: CleaningReport, options: CleaningOptions,
 }
 
 const inline = (value: string) => JSON.stringify(value).replaceAll('|', '\\|');
+const codepoints = (value: string) => Array.from(value).map((character) => `U+${character.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}`).join(' ');
+const hex = (value: string) => [...new TextEncoder().encode(value)].map((byte) => byte.toString(16).toUpperCase().padStart(2, '0')).join(' ');
 
 export function markdownReport(report: CleaningReport, options: CleaningOptions, generatedAt = new Date().toISOString()): string {
   const exported = exportedReport(report, options, generatedAt);
@@ -41,9 +43,26 @@ export function markdownReport(report: CleaningReport, options: CleaningOptions,
     '',
     ...Object.entries(options).map(([name, enabled]) => `- ${name}: ${enabled ? 'aktiv' : 'inaktiv'}`),
     '',
+    '## Unicode-Normalisierungen',
+    '',
+    '## Dekodierte Tag-Payloads',
+    '',
     '## Dekodierte Zero-Width-Payloads',
     ''
   ];
+
+  if (report.normalizations.length) {
+    lines.splice(lines.indexOf('## Dekodierte Tag-Payloads') - 1, 0, '| Positionen | Form | Vorher | Nachher |', '| --- | --- | --- | --- |', ...report.normalizations.map(({ start, end, form, before, after }) => `| ${start + 1}–${end} | ${form} | ${inline(before)} | ${inline(after)} |`));
+  } else {
+    lines.splice(lines.indexOf('## Dekodierte Tag-Payloads') - 1, 0, 'Keine Normalisierungen angewendet.');
+  }
+
+  const tagIndex = lines.indexOf('## Dekodierte Tag-Payloads');
+  if (report.hidden_messages.length) {
+    lines.splice(tagIndex + 2, 0, '| Text | Hex | Codepoints |', '| --- | --- | --- |', ...report.hidden_messages.map((payload) => `| ${inline(payload)} | ${hex(payload)} | ${codepoints(payload)} |`));
+  } else {
+    lines.splice(tagIndex + 2, 0, 'Keine formatgültigen Tag-Payloads gefunden.');
+  }
 
   if (report.zero_width_payloads.length) {
     lines.push('| Positionen | UTF-8-Payload |', '| --- | --- |');

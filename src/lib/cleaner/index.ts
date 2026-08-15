@@ -1,11 +1,21 @@
 import { codepoints, isTag, confusables, isLatin, isCyrillicOrGreek, isPrivateUse, isControl, isEmojiBase, isEmojiModifier, isVariationSelector, isHan, emojiGlue, scriptJoiners, isJoiningLetter, mongolianFvs, isMongolianLetter, khmerVowels, isKhmerLetter, hangulFillers, isHangulJamo, orthographicCf, lineSeparators, isStrip, spaces, isCjk, isFrenchSpacing, typography, isGlue, names } from './constants.js';
 
 export interface CleaningOptions {
+  nfc: boolean;
   nfkc: boolean;
   aggressive: boolean;
   normalizeSpaces: boolean;
+  normalizeTabs: boolean;
   stripGlue: boolean;
   typography: boolean;
+}
+
+export interface NormalizationFinding {
+  start: number;
+  end: number;
+  form: 'NFC' | 'NFKC';
+  before: string;
+  after: string;
 }
 
 export interface Finding {
@@ -39,6 +49,7 @@ export interface CleaningReport {
   removed_count: number;
   replaced_count: number;
   hidden_messages: string[];
+  normalizations: NormalizationFinding[];
   zero_width_payloads: ZeroWidthPayload[];
   domain_spoofs: DomainSpoofFinding[];
   unmatched_bidi_count: number;
@@ -159,15 +170,20 @@ export function tagAnalysis(text) {
       return { trusted, hiddenMessages };
     }
 
+const generalCategories = ['Lu', 'Ll', 'Lt', 'Lm', 'Lo', 'Mn', 'Mc', 'Me', 'Nd', 'Nl', 'No', 'Pc', 'Pd', 'Ps', 'Pe', 'Pi', 'Pf', 'Po', 'Sm', 'Sc', 'Sk', 'So', 'Zs', 'Zl', 'Zp', 'Cc', 'Cf', 'Cs', 'Co', 'Cn'];
+
+export function generalCategory(character: string) {
+      return generalCategories.find((category) => new RegExp(`\\p{General_Category=${category}}`, 'u').test(character)) ?? 'Cn';
+    }
+
 export function characterLabel(character) {
-      const cp = character.codePointAt(0);
+      const cp = character.codePointAt(0)!;
       let name = names.get(cp);
       if (!name && cp >= 0xfe00 && cp <= 0xfe0f) name = `VARIATION SELECTOR-${cp - 0xfdff}`;
       if (!name && cp >= 0xe0100 && cp < 0xe01f0) name = `VARIATION SELECTOR-${cp - 0xe00ef}`;
-      if (!name && isPrivateUse(cp)) name = 'UNKNOWN';
-      if (!name) name = 'UNKNOWN';
-      const category = /\p{Cf}/u.test(character) ? 'Cf' : /\p{Co}/u.test(character) ? 'Co' : /\p{Zs}/u.test(character) ? 'Zs' : 'Cn';
-      return `U+${cp.toString(16).toUpperCase().padStart(4, '0')} ${name} (${category})`;
+      if (!name && isPrivateUse(cp)) name = 'PRIVATE USE CHARACTER';
+      if (!name) name = 'NAME UNAVAILABLE';
+      return `U+${cp.toString(16).toUpperCase().padStart(4, '0')} ${name} (${generalCategory(character)})`;
     }
 
 export function decide(character, previousKept, options, nextCharacter = '', trustedTag = false, contextualConfusable = false, trustedEmojiGlue = false, ideographicVariation = false) {
@@ -183,7 +199,7 @@ export function decide(character, previousKept, options, nextCharacter = '', tru
         if (orthographicCf.has(cp)) return ['keep', character];
       }
       if (lineSeparators.has(cp) || cp === 0x0d) return ['replace', '\n'];
-      if (cp === 0x09) return ['replace', ' '];
+      if (cp === 0x09) return options.normalizeTabs ? ['replace', ' '] : ['keep', character];
       if (isControl(cp)) return ['strip', ''];
       if (isPrivateUse(cp)) return options.aggressive ? ['strip', ''] : ['keep', character];
       if (isStrip(cp)) return ['strip', ''];
@@ -201,6 +217,7 @@ export function decide(character, previousKept, options, nextCharacter = '', tru
     function findingCategory(cp, contextualConfusable) {
       if (isControl(cp) || cp === 0x09 || cp === 0x0d || lineSeparators.has(cp)) return 'controls';
       if (isTag(cp)) return 'tags';
+      if (cp >= 0x206a && cp <= 0x206f) return 'deprecated-bidi-control';
       if (isPrivateUse(cp)) return 'private-use';
       if ([0x061c, 0x200e, 0x200f].includes(cp) || (cp >= 0x202a && cp <= 0x202e) || (cp >= 0x2066 && cp <= 0x2069)) return 'bidi';
       if (spaces.has(cp)) return 'spaces';
@@ -238,34 +255,71 @@ export function decide(character, previousKept, options, nextCharacter = '', tru
     }
 
     function countUnmatchedBidi(text) {
-      const pairs = new Map([[0x202a, 0x202c], [0x202b, 0x202c], [0x202d, 0x202c], [0x202e, 0x202c], [0x2066, 0x2069], [0x2067, 0x2069], [0x2068, 0x2069]]);
-      const closers = new Set(pairs.values());
-      const stack = [];
+      let embeddings: number[] = [];
+      let isolates: number[] = [];
       let unmatched = 0;
+      const finishParagraph = () => {
+        unmatched += embeddings.length + isolates.length;
+        embeddings = [];
+        isolates = [];
+      };
       for (const character of codepoints(text)) {
-        const cp = character.codePointAt(0);
-        if (pairs.has(cp)) stack.push(pairs.get(cp));
-        else if (closers.has(cp)) {
-          if (stack.pop() !== cp) unmatched += 1;
+        if (character === '\n') {
+          finishParagraph();
+          continue;
+        }
+        const cp = character.codePointAt(0)!;
+        if ([0x202a, 0x202b, 0x202d, 0x202e].includes(cp)) embeddings.push(cp);
+        else if (cp === 0x202c) {
+          if (embeddings.length) embeddings.pop(); else unmatched += 1;
+        } else if ([0x2066, 0x2067, 0x2068].includes(cp)) isolates.push(cp);
+        else if (cp === 0x2069) {
+          if (isolates.length) isolates.pop(); else unmatched += 1;
         }
       }
-      return unmatched + stack.length;
+      finishParagraph();
+      return unmatched;
     }
 
-    function suspiciousLines(chars, findings) {
-      const positions = new Set<number>(findings.map((finding) => finding.position));
+    function suspiciousLines(chars: string[], findings: Finding[]) {
+      const positions = findings.map((finding) => finding.position).sort((a, b) => a - b);
       const lines = [];
+      let positionIndex = 0;
       let start = 0;
       let lineNumber = 1;
       for (let end = 0; end <= chars.length; end += 1) {
-        if (end !== chars.length && chars[end] !== '\n' && chars[end] !== '\r') continue;
+        if (end !== chars.length && chars[end] !== '\n') continue;
+        while (positionIndex < positions.length && positions[positionIndex] < start) positionIndex += 1;
+        let count = 0;
+        while (positionIndex < positions.length && positions[positionIndex] < end) {
+          count += 1;
+          positionIndex += 1;
+        }
         const length = end - start;
-        const count = [...positions].filter((position) => position >= start && position < end).length;
         if (length > 0 && count >= 3) lines.push({ line: lineNumber, count, density: Math.round((count / length) * 100) });
         start = end + 1;
         lineNumber += 1;
       }
       return lines;
+    }
+
+export function normalizationFindings(text: string, form: 'NFC' | 'NFKC'): NormalizationFinding[] {
+      const codeUnitToCodePoint = new Map<number, number>();
+      let codeUnit = 0;
+      let codePoint = 0;
+      for (const character of codepoints(text)) {
+        codeUnitToCodePoint.set(codeUnit, codePoint);
+        codeUnit += character.length;
+        codePoint += 1;
+      }
+      codeUnitToCodePoint.set(codeUnit, codePoint);
+      const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+      const findings: NormalizationFinding[] = [];
+      for (const { segment, index } of segmenter.segment(text)) {
+        const after = segment.normalize(form);
+        if (after !== segment) findings.push({ start: codeUnitToCodePoint.get(index)!, end: codeUnitToCodePoint.get(index + segment.length)!, form, before: segment, after });
+      }
+      return findings;
     }
 
 export function cleanText(text: string, options: CleaningOptions): [string, CleaningReport] {
@@ -310,13 +364,12 @@ export function cleanText(text: string, options: CleaningOptions): [string, Clea
         }
       }
       let cleaned = output.join('');
-      if (options.nfkc) {
-        const before = cleaned;
-        cleaned = cleaned.normalize('NFKC');
-        if (cleaned !== before) replaced.set('NFKC_normalize', Math.abs(codepoints(before).length - codepoints(cleaned).length) || 1);
-      }
+      const form = options.nfkc ? 'NFKC' : options.nfc ? 'NFC' : null;
+      const normalizations = form ? normalizationFindings(cleaned, form) : [];
+      if (form) cleaned = cleaned.normalize(form);
+      if (normalizations.length) replaced.set(`${form}_normalize`, normalizations.length);
       const asObject = (map) => Object.fromEntries(map);
       const removedCount = [...removed.values()].reduce((sum, count) => sum + count, 0);
-      const replacedCount = [...replaced].filter(([key]) => key !== 'NFKC_normalize').reduce((sum, [, count]) => sum + count, 0);
-      return [cleaned, { input_length: codepoints(text).length, output_length: codepoints(cleaned).length, removed: asObject(removed), replaced: asObject(replaced), removed_count: removedCount, replaced_count: replacedCount, hidden_messages: tags.hiddenMessages, zero_width_payloads: zeroWidthPayloads, domain_spoofs: domainSpoofs, unmatched_bidi_count: countUnmatchedBidi(normalizedText), suspicious_lines: suspiciousLines(chars, findings), findings }];
+      const replacedCount = [...replaced.values()].reduce((sum, count) => sum + count, 0);
+      return [cleaned, { input_length: codepoints(text).length, output_length: codepoints(cleaned).length, removed: asObject(removed), replaced: asObject(replaced), removed_count: removedCount, replaced_count: replacedCount, hidden_messages: tags.hiddenMessages, normalizations, zero_width_payloads: zeroWidthPayloads, domain_spoofs: domainSpoofs, unmatched_bidi_count: countUnmatchedBidi(normalizedText), suspicious_lines: suspiciousLines(chars, findings), findings }];
     }

@@ -1,15 +1,20 @@
 import { describe, expect, it } from 'vitest';
 
-import { cleanText } from './index';
+import { characterLabel, cleanText } from './index';
 import { fileMetadata } from '$lib/files';
 import { exportedReport, markdownReport, reportFileName } from '$lib/report';
 
-const options = { nfkc: true, aggressive: true, normalizeSpaces: true, stripGlue: true, typography: true };
-const safeOptions = { nfkc: false, aggressive: false, normalizeSpaces: false, stripGlue: false, typography: false };
+const options = { nfc: true, nfkc: true, aggressive: true, normalizeSpaces: true, normalizeTabs: true, stripGlue: true, typography: true };
+const safeOptions = { nfc: true, nfkc: false, aggressive: false, normalizeSpaces: false, normalizeTabs: false, stripGlue: false, typography: false };
 const clean = (text: string) => cleanText(text, options);
 const cleanSafely = (text: string) => cleanText(text, safeOptions);
 
 describe('cleanText', () => {
+  it('labels known general categories without treating regular text as unassigned', () => {
+    expect(characterLabel('A')).toContain('(Lu)');
+    expect(characterLabel('\uE000')).toContain('(Co)');
+  });
+
   it('removes C0/C1 controls and reports them', () => {
     const [output, report] = clean('A\u0000B\u0008C\u001FD\u007FE\u009FF');
     expect(output).toBe('ABCDEF');
@@ -21,6 +26,7 @@ describe('cleanText', () => {
     const [output, report] = clean('A\tB\rC');
     expect(output).toBe('A B\nC');
     expect(report.findings.filter((finding) => finding.category === 'controls')).toHaveLength(2);
+    expect(cleanSafely('a\tb')[0]).toBe('a\tb');
   });
 
   it('normalizes every line-ending form to one newline', () => {
@@ -33,8 +39,12 @@ describe('cleanText', () => {
     expect(report.findings).toEqual([]);
   });
 
-  it('reports unmatched bidi controls and dense suspicious lines', () => {
+  it('reports unmatched bidi controls per paragraph and dense suspicious lines', () => {
     expect(clean('A\u202EB')[1].unmatched_bidi_count).toBe(1);
+    expect(clean('A\u202A\u2069B')[1].unmatched_bidi_count).toBe(2);
+    expect(clean('A\u202A\n\u202CB')[1].unmatched_bidi_count).toBe(2);
+    const [, legacyReport] = clean('A\u206AB');
+    expect(legacyReport.findings[0].category).toBe('deprecated-bidi-control');
     const [output, report] = clean('a\u200Bb\u200Bc\u200Bd');
     expect(output).toBe('abcd');
     expect(report.suspicious_lines).toEqual([{ line: 1, count: 3, density: 43 }]);
@@ -76,9 +86,12 @@ describe('cleanText', () => {
 
   it('preserves non-Latin scripts and normalizes combining characters', () => {
     expect(clean('العربية 世界 हिन्दी')[0]).toBe('العربية 世界 हिन्दी');
-    const [output, report] = clean('cafe\u0301');
-    expect(output).toBe('café');
-    expect(report.replaced.NFKC_normalize).toBe(1);
+    const [output, report] = cleanText('cafe\u0301 ｐaypal', { ...options, nfkc: false });
+    expect(output).toBe('café ｐaypal');
+    expect(report.normalizations).toEqual([{ start: 3, end: 5, form: 'NFC', before: 'é', after: 'é' }]);
+    const [, compatibilityReport] = clean('ｐaypal');
+    expect(compatibilityReport.normalizations).toEqual([{ start: 0, end: 1, form: 'NFKC', before: 'ｐ', after: 'p' }]);
+    expect(compatibilityReport.replaced_count).toBe(1);
   });
 
   it('handles very large inputs while reporting every removed character', () => {
@@ -127,7 +140,7 @@ describe('domain spoof findings', () => {
 
 describe('report exports', () => {
   it('serializes metadata without the source or cleaned text', () => {
-    const report = clean('https://pаypal.com')[1];
+    const report = clean('ｐaypal\u{E0070}\u{E0061} https://pаypal.com')[1];
     const exported = exportedReport(report, options, '2026-08-15T00:00:00.000Z');
     const markdown = markdownReport(report, options, '2026-08-15T00:00:00.000Z');
 
@@ -136,6 +149,9 @@ describe('report exports', () => {
     expect(reportFileName('brief', 'markdown')).toBe('brief.report.md');
     expect(markdown).toContain('> Der Bericht enthält keine vollständige Eingabe oder bereinigte Ausgabe.');
     expect(markdown).toContain('pаypal.com');
+    expect(markdown).toContain('## Unicode-Normalisierungen');
+    expect(markdown).toContain('## Dekodierte Tag-Payloads');
+    expect(markdown).toContain('U+0070 U+0061');
   });
 });
 
