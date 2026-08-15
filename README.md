@@ -86,6 +86,8 @@ verändern. Prüfe das Ergebnis deshalb vor einer Veröffentlichung.
 - Web-App-Manifest und Service Worker für Offline-Nutzung und Installation als PWA
 - GET-basiertes Web Share Target zum Teilen von Text, Titel und URL in unterstützten,
   installierten Browsern (insbesondere Chrome auf Android)
+- Versionierte Unicode-17.0-Tabellen sowie IVD-Registry für Emoji-, standardisierte und ideographische Variationssequenzen
+- Versionierte UTS-#39-Confusable-Skeletons für URL- und E-Mail-Domainvergleiche
 
 ## Lokale Entwicklung
 
@@ -109,6 +111,15 @@ npm run build
 - `npm run check` führt Svelte- und TypeScript-Prüfungen aus.
 - `npm test` führt die Vitest-Regressionsfälle aus.
 - `npm run build` erzeugt die statische Website in `docs/`.
+
+Die eingebetteten Tabellen für standardisierte, Emoji- und ideographische
+Variationssequenzen werden aus den offiziellen, versionierten Unicode-17.0-
+und IVD-Daten erzeugt. Bei einem bewussten Unicode-/IVD-Update ausführen:
+
+```sh
+npm run unicode:variation-tables
+npm run unicode:confusables
+```
 
 ## GitHub Pages
 

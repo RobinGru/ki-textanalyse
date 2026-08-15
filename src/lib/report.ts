@@ -73,10 +73,18 @@ export function markdownReport(report: CleaningReport, options: CleaningOptions,
 
   lines.push('', '## Verdächtige Domains', '');
   if (report.domain_spoofs.length) {
-    lines.push('| Domain | Label | ASCII-Skelett | Positionen |', '| --- | --- | --- | --- |');
-    lines.push(...report.domain_spoofs.map(({ domain, label, skeleton, character_indexes }) => `| ${inline(domain)} | ${inline(label)} | ${inline(skeleton)} | ${character_indexes.map((index) => index + 1).join(', ')} |`));
+    lines.push('| Domain | Label | ASCII-Skelett | Risiko | Grund | Positionen |', '| --- | --- | --- | --- | --- | --- |');
+    lines.push(...report.domain_spoofs.map(({ domain, label, skeleton, risk, reason, character_indexes }) => `| ${inline(domain)} | ${inline(label)} | ${inline(skeleton)} | ${risk} | ${reason} | ${character_indexes.map((index) => index + 1).join(', ')} |`));
   } else {
     lines.push('Keine verdächtigen Domain-Labels gefunden.');
+  }
+
+  lines.push('', '## Forensische Unicode-Funde', '');
+  if (report.forensic_findings.length) {
+    lines.push('| Typ | Positionen | Status | Träger | Logische Vorschau | Hinweis |', '| --- | --- | --- | --- | --- | --- |');
+    lines.push(...report.forensic_findings.map((finding) => `| ${inline(finding.kind)} | ${finding.start + 1}–${finding.end} | ${finding.status} | ${inline(finding.carrier ?? '')} | ${inline(finding.logical_preview ?? finding.decoded_text ?? finding.bytes_hex ?? '')} | ${inline(finding.detail ?? '')} |`));
+  } else {
+    lines.push('Keine strukturierten Unicode-Payloads oder Selector-Runs gefunden.');
   }
 
   lines.push('', '## Zeichenänderungen', '');

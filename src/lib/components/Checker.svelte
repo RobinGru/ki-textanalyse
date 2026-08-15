@@ -5,6 +5,7 @@
   import { codepoints, isGlue } from '$lib/cleaner/constants';
   import { fileMetadata } from '$lib/files';
   import { exportedReport, markdownReport, reportFileName, type ReportFormat } from '$lib/report';
+  import { analyzeClipboardPayload, type ClipboardAnalysis } from '$lib/clipboard';
 
   const maxMarkedCodepoints = 20_000;
   const maxComparisonEntries = 250;
@@ -29,12 +30,13 @@
   let sourceExtension = 'txt';
   let outputName = 'text.cleaned.txt';
   let nfc = true;
-  let nfkc = false;
+  let nfkc = true;
   let aggressive = true;
   let normalizeSpaces = true;
   let normalizeTabs = true;
   let stripGlue = true;
   let typography = true;
+  let clipboardReport: ClipboardAnalysis | null = null;
 
   $: options = { nfc, nfkc, aggressive, normalizeSpaces, normalizeTabs, stripGlue, typography };
   $: inputLength = `${codepoints(inputText).length} Zeichen`;
@@ -45,6 +47,7 @@
     before: codepoints(inputText)[finding.position] ?? '',
   })) : [];
   $: comparisonIsTruncated = Boolean(report && report.findings.length > maxComparisonEntries);
+  $: specialFindingGroups = report ? [report.normalizations.length > 0, report.forensic_findings.length > 0, report.domain_spoofs.length > 0].filter(Boolean).length : 0;
 
   onMount(() => {
     const params = new URLSearchParams(window.location.search);
@@ -66,6 +69,10 @@
 
   function payloadHex(payload: string) {
     return [...new TextEncoder().encode(payload)].map((byte) => byte.toString(16).toUpperCase().padStart(2, '0')).join(' ');
+  }
+
+  function forensicKind(kind: string) {
+    return { 'unicode-tag': 'Unicode-Tag-Sequenz', 'variation-selector': 'Variation-Selector-Run', 'zero-width-binary': 'Zero-Width-Binärhypothese', 'zero-width-ternary': 'Zero-Width-Ternärhypothese', 'zero-width-quaternary': 'Zero-Width-Quaternärhypothese', 'bidi-scope': 'Bidi-Scope', 'combining-mark-run': 'Combining-Mark-Run', 'trailing-whitespace': 'Zeilenend-Leerraum', 'replacement-character': 'Replacement Character', 'mid-text-bom': 'BOM im Text', noncharacter: 'Noncharacter', 'unpaired-surrogate': 'Ungepaartes Surrogat', 'identifier-skeleton-collision': 'Identifier-Skeleton-Kollision' }[kind] ?? kind;
   }
 
   function displayComparisonValue(value: string | null) {
@@ -94,6 +101,7 @@
     marked = false;
     markingNote = '';
     hideCopyStatus();
+    clipboardReport = null;
   }
 
   function markOriginalText() {
@@ -150,6 +158,36 @@
   }
 
   function onInput() {
+    inputText = inputElement.innerText;
+    marked = false;
+    markingNote = '';
+    hideCopyStatus();
+    if (liveTimer) clearTimeout(liveTimer);
+    liveTimer = setTimeout(() => runCleaner(), 180);
+  }
+
+  function insertPlainText(text: string) {
+    const selection = window.getSelection();
+    if (!selection?.rangeCount) {
+      inputElement.append(document.createTextNode(text));
+      return;
+    }
+    const range = selection.getRangeAt(0);
+    range.deleteContents();
+    const node = document.createTextNode(text);
+    range.insertNode(node);
+    range.setStartAfter(node);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  function onPaste(event: ClipboardEvent) {
+    event.preventDefault();
+    const plain = event.clipboardData?.getData('text/plain') ?? '';
+    const html = event.clipboardData?.getData('text/html') ?? '';
+    clipboardReport = analyzeClipboardPayload({ plain, html });
+    insertPlainText(plain);
     inputText = inputElement.innerText;
     marked = false;
     markingNote = '';
@@ -241,13 +279,29 @@
     </div></div></details>
   </div>
   <div class="workspace-grid">
-    <section class="card workspace-panel bg-base-100 shadow-sm" aria-labelledby="input-title"><div class="card-body"><div class="panel-heading"><h2 id="input-title" class="card-title">Zu prüfender Text</h2><p class="label panel-length">{inputLength}</p></div><div bind:this={inputElement} class:marked class="textarea editor input-editor" role="textbox" aria-labelledby="input-title" aria-describedby="input-marking-note" aria-multiline="true" contenteditable="true" spellcheck="false" data-placeholder="Text hier einfügen …" onfocus={() => marked && setInputText(inputText)} oninput={onInput}></div>{#if markingNote}<p id="input-marking-note" class="label marking-note" role="status">{markingNote}</p>{/if}<div class="card-actions actions"><button class="btn" type="button" onclick={insertSample}><Sparkles size={16} aria-hidden="true" />Beispieltext einfügen</button><button class="btn btn-primary" type="button" onclick={() => runCleaner(true)}><ScanSearch size={16} aria-hidden="true" />Text prüfen und bereinigen</button></div></div></section>
-    <aside class="card workspace-panel bg-base-100 shadow-sm" aria-labelledby="stats-title"><div class="card-body"><div class="panel-heading"><h2 id="stats-title" class="card-title"><ScanSearch size={18} aria-hidden="true" />Erkannte Auffälligkeiten</h2></div>{#if !report}<p class="report-empty">Füge einen Text ein, um potenzielle Wasserzeichenmuster zu prüfen.</p>{:else if !report.findings.length && !report.unmatched_bidi_count && !report.removed_count && !report.replaced_count && !report.replaced.NFKC_normalize}<div class="alert alert-success" role="status"><Check size={18} aria-hidden="true" /><span><strong>Keine untersuchten technischen Auffälligkeiten gefunden.</strong><br />Das ist kein Nachweis für die Urheberschaft des Textes.</span></div>{:else}<div class="detection-list" aria-live="polite">{#each categories as [category, count]}<span class={`badge ${colors[category]} detection-chip`}><span>{labels[category]}</span><strong>{count}</strong></span>{/each}{#if report.unmatched_bidi_count}<span class="badge badge-error detection-chip"><span>Nicht geschlossene Bidi-Paare</span><strong>{report.unmatched_bidi_count}</strong></span>{/if}{#each report.suspicious_lines as line}<span class="badge badge-warning detection-chip"><span>Zeile {line.line}: Auffälligkeiten</span><strong>{line.count}</strong></span>{/each}<div class="badge detection-chip summary-line"><span><strong>{report.removed_count}</strong> entfernt</span><span><strong>{report.replaced_count}</strong> ersetzt</span></div></div>{/if}</div></aside>
+    <section class="card workspace-panel bg-base-100 shadow-sm" aria-labelledby="input-title"><div class="card-body"><div class="panel-heading"><h2 id="input-title" class="card-title">Zu prüfender Text</h2><p class="label panel-length">{inputLength}</p></div><div bind:this={inputElement} class:marked class="textarea editor input-editor" role="textbox" aria-labelledby="input-title" aria-describedby="input-marking-note paste-description" aria-multiline="true" contenteditable="true" spellcheck="false" data-placeholder="Text hier einfügen …" onfocus={() => marked && setInputText(inputText)} oninput={onInput} onpaste={onPaste}></div><p id="paste-description" class="label">Einfügen analysiert vorhandenes Clipboard-HTML lokal; in den Editor gelangt nur Klartext.</p>{#if markingNote}<p id="input-marking-note" class="label marking-note" role="status">{markingNote}</p>{/if}<div class="card-actions actions"><button class="btn" type="button" onclick={insertSample}><Sparkles size={16} aria-hidden="true" />Beispieltext einfügen</button><button class="btn btn-primary" type="button" onclick={() => runCleaner(true)}><ScanSearch size={16} aria-hidden="true" />Text prüfen und bereinigen</button></div></div></section>
+    <aside class="card workspace-panel bg-base-100 shadow-sm" aria-labelledby="stats-title"><div class="card-body"><div class="panel-heading"><h2 id="stats-title" class="card-title"><ScanSearch size={18} aria-hidden="true" />Erkannte Auffälligkeiten</h2></div>{#if !report}<p class="report-empty">Füge einen Text ein, um potenzielle Wasserzeichenmuster zu prüfen.</p>{:else if !report.findings.length && !report.forensic_findings.length && !report.unmatched_bidi_count && !report.removed_count && !report.replaced_count && !report.replaced.NFKC_normalize}<div class="alert alert-success" role="status"><Check size={18} aria-hidden="true" /><span><strong>Keine untersuchten technischen Auffälligkeiten gefunden.</strong><br />Das ist kein Nachweis für die Urheberschaft des Textes.</span></div>{:else}<div class="detection-list" aria-live="polite">{#each categories as [category, count]}<span class={`badge ${colors[category]} detection-chip`}><span>{labels[category]}</span><strong>{count}</strong></span>{/each}{#if report.unmatched_bidi_count}<span class="badge badge-error detection-chip"><span>Nicht geschlossene Bidi-Paare</span><strong>{report.unmatched_bidi_count}</strong></span>{/if}{#each report.suspicious_lines as line}<span class="badge badge-warning detection-chip"><span>Zeile {line.line}: Auffälligkeiten</span><strong>{line.count}</strong></span>{/each}<div class="badge detection-chip summary-line"><span><strong>{report.removed_count}</strong> entfernt</span><span><strong>{report.replaced_count}</strong> ersetzt</span></div></div>{/if}</div></aside>
   </div>
-  {#if report && (report.normalizations.length || report.hidden_messages.length || report.zero_width_payloads.length || report.domain_spoofs.length)}
-    <section class="card workspace-panel bg-base-100 shadow-sm" aria-labelledby="special-findings-title">
-      <div class="card-body gap-4">
+  {#if clipboardReport}
+    <details class="collapse collapse-arrow card workspace-panel bg-base-100 shadow-sm" open aria-labelledby="paste-forensics-title">
+      <summary class="collapse-title panel-heading"><h2 id="paste-forensics-title" class="card-title">Paste Forensics</h2><span class={`badge ${clipboardReport.findings.length ? 'badge-warning' : 'badge-success'}`}>{clipboardReport.findings.length} Hinweise</span></summary>
+      <div class="collapse-content"><div class="card-body gap-3 pt-0">
+        <p class="label">Die HTML-Repräsentation wurde nur inert analysiert und nie in die Seite eingefügt. Befunde sind technische Hinweise, kein Nachweis einer Manipulation.</p>
+        {#if !clipboardReport.html}<div class="alert alert-info" role="status"><span>Die Zwischenablage enthielt kein HTML; analysiert wurde nur Klartext.</span></div>
+        {:else if !clipboardReport.findings.length}<div class="alert alert-success" role="status"><span>Keine untersuchten Abweichungen oder versteckten HTML-Inhalte gefunden.</span></div>
+        {:else}<ul class="list-disc pl-5">{#each clipboardReport.findings as finding}<li><strong>{finding.kind}</strong>: {finding.detail}</li>{/each}</ul>{/if}
+        {#if clipboardReport.html}<details><summary class="cursor-pointer">Text-Repräsentationen anzeigen</summary><div class="mt-2 grid gap-2"><p><strong>Klartext:</strong> <code>{JSON.stringify(clipboardReport.plain)}</code></p><p><strong>DOM-Text:</strong> <code>{JSON.stringify(clipboardReport.domText)}</code></p><p><strong>Heuristisch sichtbar:</strong> <code>{JSON.stringify(clipboardReport.visibleText)}</code></p><label class="grid gap-1"><span>HTML-Quelltext (nur Anzeige)</span><textarea class="textarea" readonly rows="6" value={clipboardReport.html}></textarea></label></div></details>{/if}
+      </div></div>
+    </details>
+  {/if}
+  {#if report && (report.normalizations.length || report.forensic_findings.length || report.domain_spoofs.length)}
+    <details class="collapse collapse-arrow card workspace-panel bg-base-100 shadow-sm" aria-labelledby="special-findings-title">
+      <summary class="collapse-title panel-heading">
         <h2 id="special-findings-title" class="card-title">Besondere Prüfhilfen</h2>
+        <span class="badge badge-warning">{specialFindingGroups}</span>
+      </summary>
+      <div class="collapse-content">
+      <div class="card-body gap-4 pt-0">
         {#if report.normalizations.length}
           <div class="alert alert-info" role="status">
             <div>
@@ -256,22 +310,14 @@
             </div>
           </div>
         {/if}
-        {#if report.hidden_messages.length}
+        {#if report.forensic_findings.length}
           <div class="alert alert-warning" role="status">
             <div>
-              <strong>Dekodierte Tag-Payloads</strong>
-              <ul>{#each report.hidden_messages as payload}<li><div>Text: <code>{JSON.stringify(payload)}</code></div><div>Hex: <code>{payloadHex(payload)}</code></div><div>Codepoints: <code>{payloadCodepoints(payload)}</code></div></li>{/each}</ul>
-            </div>
-          </div>
-        {/if}
-        {#if report.zero_width_payloads.length}
-          <div class="alert alert-warning" role="status">
-            <div>
-              <strong>Zero-Width-Binärnachricht erkannt</strong>
-              <p>Nur vollständige 8-Bit-UTF-8-Sequenzen mit U+200B/U+200C und U+200D als Trenner werden dekodiert.</p>
+              <strong>Forensische Unicode-Funde</strong>
+              <p>Eine Dekodierung ist eine getestete technische Hypothese, keine Aussage über Absicht oder Herkunft.</p>
               <ul>
-                {#each report.zero_width_payloads as payload}
-                  <li>Position {payload.start + 1}–{payload.end}: <code>{JSON.stringify(payload.payload)}</code></li>
+                {#each report.forensic_findings as finding}
+                  <li><strong>{forensicKind(finding.kind)}</strong>, Position {finding.start + 1}–{finding.end} (UTF-16: {finding.code_unit_start}–{finding.code_unit_end}), {finding.status}. {finding.carrier ? `Träger: ${payloadCodepoints(finding.carrier)}. ` : ''}{finding.decoded_text !== undefined ? `Text: ${JSON.stringify(finding.decoded_text)}. ` : ''}{finding.bytes_hex ? `Hex: ${finding.bytes_hex}. ` : ''}{finding.detail}{#if finding.logical_preview !== undefined}<div class="bidi-previews"><span>Logische Reihenfolge: <code>{finding.logical_preview}</code></span>{#if finding.visual_preview}<span>Browser-Vorschau: <bdi class="bidi-visual-preview" dir="ltr">{finding.visual_preview}</bdi></span>{/if}</div>{/if}</li>
                 {/each}
               </ul>
             </div>
@@ -284,14 +330,15 @@
               <p>Diese technische Warnung ist kein Nachweis für Betrug. Öffne die Domain nicht unkritisch.</p>
               <ul>
                 {#each report.domain_spoofs as spoof}
-                  <li><code>{spoof.domain}</code>: Label <code>{spoof.label}</code> ähnelt <code>{spoof.skeleton}</code>.</li>
+                  <li><code>{spoof.domain}</code>: {spoof.reason === 'punycode-label' ? `Punycode-Label ${spoof.label}; die dargestellte Ziel-Domain prüfen.` : `Label ${spoof.label} ähnelt ${spoof.skeleton}.`}</li>
                 {/each}
               </ul>
             </div>
           </div>
         {/if}
       </div>
-    </section>
+      </div>
+    </details>
   {/if}
   <section class="card workspace-panel bg-base-100 shadow-sm" aria-labelledby="output-title"><div class="card-body"><div class="panel-heading"><h2 id="output-title" class="card-title"><Check size={18} aria-hidden="true" />Bereinigter Text</h2><div class="panel-meta"><p class="label panel-length">{outputLength}</p><button class="btn btn-sm" type="button" disabled={!outputText || copyTemporarilyDisabled} onclick={copyOutput}>{#if copyTemporarilyDisabled}<Check size={16} aria-hidden="true" />{:else}<Clipboard size={16} aria-hidden="true" />{/if}{copyButtonLabel}</button></div></div><textarea bind:this={outputElement} class="textarea editor" spellcheck="false" readonly aria-labelledby="output-title" aria-live="polite" placeholder="Die Ausgabe erscheint nach der Bereinigung." value={outputText}></textarea>{#if copyStatus}<p class={`label copy-status copy-status-${copyStatusType}`} role="status" aria-live="polite">{copyStatus}</p>{/if}</div></section>
   {#if report}

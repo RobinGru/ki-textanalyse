@@ -7,6 +7,8 @@
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
+    "unicode:variation-tables": "node scripts/generate-variation-tables.mjs",
+    "unicode:confusables": "node scripts/generate-confusables.mjs",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run"
   },
