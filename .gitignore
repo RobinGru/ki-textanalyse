@@ -1,3 +1,32 @@
+# Dependencies
 node_modules/
+
+# SvelteKit and Vite caches
 .svelte-kit/
+.vite/
 build/
+
+# Environment files and local secrets
+.env
+.env.*
+!.env.example
+
+# Test and coverage output
+coverage/
+test-results/
+playwright-report/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor and operating-system files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
