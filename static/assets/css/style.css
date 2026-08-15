@@ -15,6 +15,7 @@ html { scroll-behavior: smooth; }
     .brand-copy span { margin-top: .125rem; color: color-mix(in srgb, var(--color-base-content) 60%, transparent); font-size: .6875rem; }
     .site-links { display: flex; flex-wrap: wrap; margin-left: auto; justify-content: flex-end; gap: .25rem; padding: .25rem; border-radius: var(--radius-field); background: var(--color-base-200); }
     .nav-link { min-height: 2rem; padding-inline: .625rem; font-size: .8125rem; font-weight: 600; }
+    .theme-toggle { min-height: 2rem; padding-inline: .625rem; font-size: .8125rem; font-weight: 600; }
     .nav-link-active { background: var(--color-base-100); box-shadow: 0 1px 2px color-mix(in srgb, var(--color-base-content) 12%, transparent); }
     .site-intro { display: grid; gap: .375rem; }
     .site-intro p { margin: 0; }
@@ -78,4 +79,5 @@ html { scroll-behavior: smooth; }
       .site-nav { align-items: stretch; flex-direction: column; }
       .site-links { width: 100%; margin-left: 0; justify-content: flex-start; }
       .nav-link { flex: 1 1 auto; }
+      .theme-toggle { flex: 1 1 auto; }
     }

@@ -1,4 +1,4 @@
-import { codepoints, isTag, confusables, isLatin, isCyrillicOrGreek, isPrivateUse, isControl, isEmojiBase, emojiGlue, scriptJoiners, isJoiningLetter, mongolianFvs, isMongolianLetter, khmerVowels, isKhmerLetter, hangulFillers, isHangulJamo, orthographicCf, lineSeparators, isStrip, spaces, isCjk, isFrenchSpacing, typography, isGlue, names } from './constants.js';
+import { codepoints, isTag, confusables, isLatin, isCyrillicOrGreek, isPrivateUse, isControl, isEmojiBase, isEmojiModifier, isVariationSelector, isHan, emojiGlue, scriptJoiners, isJoiningLetter, mongolianFvs, isMongolianLetter, khmerVowels, isKhmerLetter, hangulFillers, isHangulJamo, orthographicCf, lineSeparators, isStrip, spaces, isCjk, isFrenchSpacing, typography, isGlue, names } from './constants.js';
 
 export interface CleaningOptions {
   nfkc: boolean;
@@ -17,6 +17,20 @@ export interface Finding {
   reason: string;
 }
 
+/** A decoded zero-width binary payload. `end` is exclusive. */
+export interface ZeroWidthPayload {
+  payload: string;
+  start: number;
+  end: number;
+}
+
+export interface DomainSpoofFinding {
+  domain: string;
+  label: string;
+  skeleton: string;
+  character_indexes: number[];
+}
+
 export interface CleaningReport {
   input_length: number;
   output_length: number;
@@ -25,9 +39,83 @@ export interface CleaningReport {
   removed_count: number;
   replaced_count: number;
   hidden_messages: string[];
+  zero_width_payloads: ZeroWidthPayload[];
+  domain_spoofs: DomainSpoofFinding[];
   unmatched_bidi_count: number;
   suspicious_lines: Array<{ line: number; count: number; density: number }>;
   findings: Finding[];
+}
+
+/**
+ * Decodes only maximal runs of ZWSP/ZWNJ bits separated by ZWJ byte boundaries.
+ * This intentionally excludes ordinary emoji ZWJ sequences, which contain emoji
+ * code points and therefore cannot form a zero-width-only run.
+ */
+export function zeroWidthBinaryAnalysis(chars: string[]): ZeroWidthPayload[] {
+  const payloads: ZeroWidthPayload[] = [];
+  const isZeroWidthBinary = (character: string) => [0x200b, 0x200c, 0x200d].includes(character.codePointAt(0)!);
+
+  for (let start = 0; start < chars.length;) {
+    if (!isZeroWidthBinary(chars[start])) {
+      start += 1;
+      continue;
+    }
+
+    let end = start;
+    while (end < chars.length && isZeroWidthBinary(chars[end])) end += 1;
+    const bytes = chars.slice(start, end).join('').split('\u200d');
+    if (bytes.length > 0 && bytes.every((byte) => byte.length === 8 && /^[\u200b\u200c]{8}$/.test(byte))) {
+      const values = bytes.map((byte) => Number.parseInt([...byte].map((character) => character === '\u200c' ? '1' : '0').join(''), 2));
+      try {
+        const payload = new TextDecoder('utf-8', { fatal: true }).decode(new Uint8Array(values));
+        if ([...payload].every((character) => character === '\t' || character === '\n' || character === '\r' || !/\p{C}/u.test(character))) {
+          payloads.push({ payload, start, end });
+        }
+      } catch {
+        // Invalid UTF-8 is not a payload.
+      }
+    }
+    start = end;
+  }
+  return payloads;
+}
+
+export function domainSpoofAnalysis(text: string, chars = codepoints(text)): DomainSpoofFinding[] {
+  const codeUnitToCodePoint = new Map<number, number>();
+  let codeUnitIndex = 0;
+  chars.forEach((character, index) => {
+    codeUnitToCodePoint.set(codeUnitIndex, index);
+    codeUnitIndex += character.length;
+  });
+  const findings: DomainSpoofFinding[] = [];
+  const seen = new Set<string>();
+  const patterns = [
+    /[\p{L}\p{N}._%+-]+@((?:[\p{L}\p{N}-]+\.)+[\p{L}\p{N}-]+)/gu,
+    /(?:https?:\/\/|www\.)((?:[\p{L}\p{N}-]+\.)+[\p{L}\p{N}-]+)/gu
+  ];
+
+  for (const pattern of patterns) {
+    for (const match of text.matchAll(pattern)) {
+      const domain = match[1];
+      const domainOffset = match.index! + match[0].lastIndexOf(domain);
+      let labelOffset = codeUnitToCodePoint.get(domainOffset)!;
+      for (const label of domain.split('.')) {
+        const labelChars = codepoints(label);
+        const mixed = labelChars.some((character) => /^[A-Za-z]$/.test(character)) && labelChars.some(isCyrillicOrGreek);
+        const suspicious = labelChars.filter(isCyrillicOrGreek);
+        if (mixed && suspicious.length > 0 && suspicious.every((character) => confusables.has(character.codePointAt(0)!))) {
+          const character_indexes = labelChars.flatMap((character, index) => confusables.has(character.codePointAt(0)!) ? [labelOffset + index] : []);
+          const key = `${domainOffset}:${label}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            findings.push({ domain, label, skeleton: labelChars.map((character) => confusables.get(character.codePointAt(0)!) ?? character).join(''), character_indexes });
+          }
+        }
+        labelOffset += labelChars.length + 1;
+      }
+    }
+  }
+  return findings;
 }
 
 export function mixedConfusableIndexes(chars) {
@@ -36,7 +124,7 @@ export function mixedConfusableIndexes(chars) {
       while (start < chars.length) {
         while (start < chars.length && !/[\p{L}\p{M}]/u.test(chars[start])) start += 1;
         let end = start;
-        while (end < chars.length && /[\p{L}\p{M}'’-]/u.test(chars[end])) end += 1;
+        while (end < chars.length && /[\p{L}\p{M}\p{Cf}'’-]/u.test(chars[end])) end += 1;
         const word = chars.slice(start, end);
         if (word.some(isLatin) && word.some(isCyrillicOrGreek) && word.filter(isCyrillicOrGreek).every((character) => confusables.has(character.codePointAt(0)))) {
           word.forEach((character, offset) => { if (confusables.has(character.codePointAt(0))) indexes.add(start + offset); });
@@ -82,11 +170,12 @@ export function characterLabel(character) {
       return `U+${cp.toString(16).toUpperCase().padStart(4, '0')} ${name} (${category})`;
     }
 
-export function decide(character, previousKept, options, nextCharacter = '', trustedTag = false, contextualConfusable = false) {
+export function decide(character, previousKept, options, nextCharacter = '', trustedTag = false, contextualConfusable = false, trustedEmojiGlue = false, ideographicVariation = false) {
       const cp = character.codePointAt(0);
-      if (emojiGlue.has(cp) && !options.stripGlue && previousKept !== null && nextCharacter && isEmojiBase(previousKept.codePointAt(0)) && isEmojiBase(nextCharacter.codePointAt(0))) return ['keep', character];
+      if (!options.stripGlue && emojiGlue.has(cp) && trustedEmojiGlue) return ['keep', character];
       if (!options.stripGlue) {
-        if (scriptJoiners.has(cp) && previousKept !== null && isJoiningLetter(previousKept.codePointAt(0))) return ['keep', character];
+        if (scriptJoiners.has(cp) && previousKept !== null && nextCharacter && isJoiningLetter(previousKept.codePointAt(0)) && isJoiningLetter(nextCharacter.codePointAt(0))) return ['keep', character];
+        if (ideographicVariation) return ['keep', character];
         if (isTag(cp) && trustedTag) return ['keep', character];
         if (mongolianFvs.has(cp) && previousKept !== null && isMongolianLetter(previousKept.codePointAt(0))) return ['keep', character];
         if (khmerVowels.has(cp) && previousKept !== null && isKhmerLetter(previousKept.codePointAt(0))) return ['keep', character];
@@ -96,6 +185,7 @@ export function decide(character, previousKept, options, nextCharacter = '', tru
       if (lineSeparators.has(cp) || cp === 0x0d) return ['replace', '\n'];
       if (cp === 0x09) return ['replace', ' '];
       if (isControl(cp)) return ['strip', ''];
+      if (isPrivateUse(cp)) return options.aggressive ? ['strip', ''] : ['keep', character];
       if (isStrip(cp)) return ['strip', ''];
       if (options.normalizeSpaces && spaces.has(cp)) {
         if (cp === 0x3000 && (isCjk(previousKept ?? '') || isCjk(nextCharacter))) return ['keep', character];
@@ -111,12 +201,40 @@ export function decide(character, previousKept, options, nextCharacter = '', tru
     function findingCategory(cp, contextualConfusable) {
       if (isControl(cp) || cp === 0x09 || cp === 0x0d || lineSeparators.has(cp)) return 'controls';
       if (isTag(cp)) return 'tags';
+      if (isPrivateUse(cp)) return 'private-use';
       if ([0x061c, 0x200e, 0x200f].includes(cp) || (cp >= 0x202a && cp <= 0x202e) || (cp >= 0x2066 && cp <= 0x2069)) return 'bidi';
       if (spaces.has(cp)) return 'spaces';
       if (typography.has(cp)) return 'typography';
       if (contextualConfusable) return 'confusables';
       if ((cp >= 0xfe00 && cp <= 0xfe0f) || (cp >= 0xe0100 && cp <= 0xe01ef) || (cp >= 0x180b && cp <= 0x180f)) return 'variation';
       return 'invisible';
+    }
+
+    export function emojiSequenceIndexes(chars: string[]) {
+      const trusted = new Set<number>();
+      const findBase = (index: number, step: -1 | 1) => {
+        for (let cursor = index; cursor >= 0 && cursor < chars.length; cursor += step) {
+          const cp = chars[cursor].codePointAt(0)!;
+          if (isVariationSelector(cp) || isEmojiModifier(cp)) continue;
+          return isEmojiBase(cp);
+        }
+        return false;
+      };
+      for (let index = 0; index < chars.length; index += 1) {
+        const cp = chars[index].codePointAt(0)!;
+        if (cp === 0x200d && findBase(index - 1, -1) && findBase(index + 1, 1)) trusted.add(index);
+        if ((cp === 0xfe0e || cp === 0xfe0f) && findBase(index - 1, -1)) trusted.add(index);
+      }
+      return trusted;
+    }
+
+    export function ideographicVariationIndexes(chars: string[]) {
+      const trusted = new Set<number>();
+      for (let index = 1; index < chars.length; index += 1) {
+        const cp = chars[index].codePointAt(0)!;
+        if (cp >= 0xe0100 && cp <= 0xe01ef && isHan(chars[index - 1])) trusted.add(index);
+      }
+      return trusted;
     }
 
     function countUnmatchedBidi(text) {
@@ -151,19 +269,35 @@ export function decide(character, previousKept, options, nextCharacter = '', tru
     }
 
 export function cleanText(text: string, options: CleaningOptions): [string, CleaningReport] {
+      const normalizedText = text.replace(/\r\n|\r|\u0085|\u2028|\u2029/g, '\n');
       const removed = new Map();
       const replaced = new Map();
       const output = [];
       let previousKept = null;
       const increment = (map, key) => map.set(key, (map.get(key) ?? 0) + 1);
-      const chars = codepoints(text);
-      const tags = tagAnalysis(text);
+      const lineEndingFindings: Finding[] = [];
+      const originalChars = codepoints(text);
+      for (let index = 0; index < originalChars.length; index += 1) {
+        const character = originalChars[index];
+        const cp = character.codePointAt(0)!;
+        if (cp !== 0x0d && !lineSeparators.has(cp)) continue;
+        lineEndingFindings.push({ position: index, codepoint: `U+${cp.toString(16).toUpperCase().padStart(4, '0')}`, category: 'controls', action: 'replace', replacement: '\n', reason: characterLabel(character) });
+        increment(replaced, characterLabel(character));
+        if (cp === 0x0d && originalChars[index + 1] === '\n') index += 1;
+      }
+      const chars = codepoints(normalizedText);
+      const tags = tagAnalysis(normalizedText);
       const confusableIndexes = mixedConfusableIndexes(chars);
-      const findings: Finding[] = [];
+      const emojiGlueIndexes = emojiSequenceIndexes(chars);
+      const ideographicVariations = ideographicVariationIndexes(chars);
+      const zeroWidthPayloads = zeroWidthBinaryAnalysis(chars);
+      const domainSpoofs = domainSpoofAnalysis(normalizedText, chars);
+      const findings: Finding[] = [...lineEndingFindings];
       for (let index = 0; index < chars.length; index += 1) {
         const character = chars[index];
-        const [action, result] = decide(character, previousKept, options, chars[index + 1] ?? '', tags.trusted.has(index), confusableIndexes.has(index));
-        if (action !== 'keep') findings.push({ position: index, codepoint: `U+${character.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}`, category: findingCategory(character.codePointAt(0), confusableIndexes.has(index)), action, replacement: result || null, reason: characterLabel(character) });
+        const cp = character.codePointAt(0)!;
+        const [action, result] = decide(character, previousKept, options, chars[index + 1] ?? '', tags.trusted.has(index), confusableIndexes.has(index), emojiGlueIndexes.has(index), ideographicVariations.has(index));
+        if (action !== 'keep' || (isPrivateUse(cp) && !options.aggressive)) findings.push({ position: index, codepoint: `U+${cp.toString(16).toUpperCase().padStart(4, '0')}`, category: findingCategory(cp, confusableIndexes.has(index)), action: action === 'keep' ? 'report' : action, replacement: action === 'keep' ? character : result || null, reason: characterLabel(character) });
         if (action === 'keep') {
           output.push(result);
           if (!isGlue(character.codePointAt(0))) previousKept = result;
@@ -176,7 +310,6 @@ export function cleanText(text: string, options: CleaningOptions): [string, Clea
         }
       }
       let cleaned = output.join('');
-      if (options.typography) cleaned = cleaned.replace(/[ \t]*,[ \t]*/g, ', ');
       if (options.nfkc) {
         const before = cleaned;
         cleaned = cleaned.normalize('NFKC');
@@ -185,5 +318,5 @@ export function cleanText(text: string, options: CleaningOptions): [string, Clea
       const asObject = (map) => Object.fromEntries(map);
       const removedCount = [...removed.values()].reduce((sum, count) => sum + count, 0);
       const replacedCount = [...replaced].filter(([key]) => key !== 'NFKC_normalize').reduce((sum, [, count]) => sum + count, 0);
-      return [cleaned, { input_length: codepoints(text).length, output_length: codepoints(cleaned).length, removed: asObject(removed), replaced: asObject(replaced), removed_count: removedCount, replaced_count: replacedCount, hidden_messages: tags.hiddenMessages, unmatched_bidi_count: countUnmatchedBidi(text), suspicious_lines: suspiciousLines(chars, findings), findings }];
+      return [cleaned, { input_length: codepoints(text).length, output_length: codepoints(cleaned).length, removed: asObject(removed), replaced: asObject(replaced), removed_count: removedCount, replaced_count: replacedCount, hidden_messages: tags.hiddenMessages, zero_width_payloads: zeroWidthPayloads, domain_spoofs: domainSpoofs, unmatched_bidi_count: countUnmatchedBidi(normalizedText), suspicious_lines: suspiciousLines(chars, findings), findings }];
     }

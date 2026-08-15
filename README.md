@@ -1,5 +1,10 @@
 # KI-Textwasserzeichen-Prüfer
 
+> [!TIP]
+> **[Prüfer jetzt direkt im Browser öffnen →](https://robingru.github.io/ki-textwasserzeichen-pruefer/)**
+>
+> Keine Installation und kein Upload erforderlich: Text einfügen und lokal prüfen.
+
 [![GitHub Pages](https://img.shields.io/badge/Demo-GitHub%20Pages-181717?logo=github)](https://robingru.github.io/ki-textwasserzeichen-pruefer/)
 [![SvelteKit](https://img.shields.io/badge/SvelteKit-TypeScript-ff3e00?logo=svelte)](https://kit.svelte.dev/)
 
@@ -33,6 +38,8 @@ unverändert in den veröffentlichten Build. Sie wird nicht von Vite gebündelt.
 | Kategorie | Beispiele | Verhalten |
 | --- | --- | --- |
 | Unsichtbare Zeichen | Zero Width Space, Soft Hyphen, Word Joiner, Tag-Zeichen | Erkennen und entfernen |
+| Zero-Width-Binärnachrichten | `U+200B` = 0, `U+200C` = 1, `U+200D` als Byte-Trenner | Vollständige UTF-8-Bytes dekodieren und mit Position anzeigen |
+| Verdächtige Domains | `pаypal.com` mit kyrillischem `а` | URL- und E-Mail-Domains als Lookalike-Verdacht markieren |
 | Richtungssteuerungen | Bidi-Overrides, Isolate, LTR-/RTL-Markierungen | Erkennen, entfernen und nicht geschlossene Paare melden |
 | Steuerzeichen | C0/C1-Zeichen, NEL, Tabulatoren, Zeilentrenner | Entfernen oder lesbar normalisieren |
 | Mixed-Script-Lookalikes | kyrillisches `а` in `pаy` | In gemischten Wörtern markieren und optional in ASCII überführen |
@@ -52,6 +59,7 @@ Einzelmarkierungen begrenzt, damit die Bedienung flüssig bleibt.
 3. Bei Bedarf Optionen anpassen.
 4. **Text prüfen und bereinigen** auswählen.
 5. Die bereinigte Ausgabe kopieren oder als Datei herunterladen.
+6. Den Prüfbericht bei Bedarf als JSON oder Markdown ohne vollständige Textinhalte herunterladen.
 
 Alle Optionen sind standardmäßig aktiv. Insbesondere die strenge
 Verkettungsbereinigung und ASCII-Typografie können legitime Emoji-Sequenzen,
@@ -64,6 +72,8 @@ verändern. Prüfe das Ergebnis deshalb vor einer Veröffentlichung.
 - Inhalte werden nicht an einen Server übertragen.
 - Upload, Erkennung, Bereinigung, Kopieren und Download verbleiben lokal auf dem
   Gerät.
+- Prüfberichte enthalten keine vollständige Eingabe oder bereinigte Ausgabe. Sie
+  enthalten jedoch technische Funddaten und gegebenenfalls dekodierte Payloads.
 - Die Anwendung verwendet keine API-Schlüssel und kein KI-Modell.
 
 ## Technik
@@ -74,6 +84,8 @@ verändern. Prüfe das Ergebnis deshalb vor einer Veröffentlichung.
 - [Vitest](https://vitest.dev/) für die Unicode- und Dateinamen-Tests
 - GitHub Pages für die Veröffentlichung
 - Web-App-Manifest und Service Worker für Offline-Nutzung und Installation als PWA
+- GET-basiertes Web Share Target zum Teilen von Text, Titel und URL in unterstützten,
+  installierten Browsern (insbesondere Chrome auf Android)
 
 ## Lokale Entwicklung
 

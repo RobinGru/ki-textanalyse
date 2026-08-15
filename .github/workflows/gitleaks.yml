@@ -1,0 +1,22 @@
+name: Scan secrets
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@latest
+        with:
+          fetch-depth: 0
+      - name: Scan repository history and changes
+        uses: gitleaks/gitleaks-action@latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

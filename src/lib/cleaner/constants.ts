@@ -44,9 +44,12 @@ export const names = new Map([
 export const codepoints = (text: string): string[] => Array.from(text);
 export const isPrivateUse = (cp) => (cp >= 0xe000 && cp <= 0xf8ff) || (cp >= 0xf0000 && cp <= 0xffffd) || (cp >= 0x100000 && cp <= 0x10fffd);
 export const isControl = (cp) => (cp >= 0x00 && cp <= 0x1f && ![0x09, 0x0a, 0x0d].includes(cp)) || (cp >= 0x7f && cp <= 0x9f);
-export const isStrip = (cp) => stripCodepoints.has(cp) || (cp >= 0xe0100 && cp < 0xe01f0) || (cp >= 0xe0001 && cp <= 0xe007f) || isPrivateUse(cp);
+export const isStrip = (cp) => stripCodepoints.has(cp) || (cp >= 0xe0100 && cp < 0xe01f0) || (cp >= 0xe0001 && cp <= 0xe007f);
 export const isEmojiBase = (cp) => /\p{Extended_Pictographic}/u.test(String.fromCodePoint(cp));
+export const isEmojiModifier = (cp) => cp >= 0x1f3fb && cp <= 0x1f3ff;
+export const isVariationSelector = (cp) => (cp >= 0xfe00 && cp <= 0xfe0f) || (cp >= 0xe0100 && cp <= 0xe01ef);
 export const isCjk = (character) => /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(character);
+export const isHan = (character) => /\p{Script=Han}/u.test(character);
 export const isFrenchSpacing = (previous, next) => /[«‹]/.test(previous ?? '') || /[»›!?;:]/.test(next ?? '');
 export const isJoiningLetter = (cp) => cp > 0x7f && /[\p{L}\p{M}]/u.test(String.fromCodePoint(cp));
 export const isMongolianLetter = (cp) => cp >= 0x1800 && cp <= 0x18af && /\p{L}/u.test(String.fromCodePoint(cp));
