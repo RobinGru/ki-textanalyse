@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { ShieldCheck } from '@lucide/svelte';
   import { base } from '$app/paths';
 
   export let title: string;
@@ -16,7 +17,7 @@
 <header class="site-header">
   <nav class="navbar site-nav" aria-label="Hauptnavigation">
     <a class="site-brand" href={`${base}/`} aria-label="KI-Textwasserzeichen-Prüfer – Startseite">
-      <span class="brand-mark" aria-hidden="true">KI</span>
+      <span class="brand-mark" aria-hidden="true"><ShieldCheck size={20} strokeWidth={2.25} /></span>
       <span class="brand-copy"><strong>KI-Wasserzeichen</strong><span>Textprüfung</span></span>
     </a>
     <div class="site-links">
