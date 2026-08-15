@@ -35,5 +35,6 @@ kann beim Build `BASE_PATH` gesetzt werden:
 BASE_PATH=/mein-repository npm run build
 ```
 
-Die statischen Dateien liegen nach dem Build in `build/`; diesen Ordner als
-GitHub-Pages-Artefakt veröffentlichen.
+Die statischen Dateien liegen nach dem Build in `docs/`. GitHub Pages ist auf
+`main` und den Ordner `/docs` eingestellt. Nach Änderungen daher immer
+`npm run build` ausführen und die aktualisierten Dateien aus `docs/` committen.
