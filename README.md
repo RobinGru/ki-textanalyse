@@ -1,47 +1,39 @@
-# KI-Textwasserzeichen prüfen
+# KI-Textwasserzeichen-Prüfer
 
-Statische Browser-Anwendung zum Erkennen und Bereinigen potenzieller
-KI-Textwasserzeichen: unsichtbare Unicode-Zeichen, Richtungssteuerungen,
-Steuerzeichen und typografische Sonderformen. Die Anwendung liefert technische
-Hinweise, aber keinen Nachweis für die Urheberschaft durch eine bestimmte KI.
-Verarbeitung und Oberfläche laufen vollständig lokal im Browser; daisyUI liegt
-als lokale CSS-Datei im Repository.
+SvelteKit-Anwendung zum Erkennen und Bereinigen potenzieller technischer
+Textwasserzeichen: unsichtbare Unicode-Zeichen, Richtungssteuerungen,
+Steuerzeichen und typografische Sonderformen. Sie liefert technische Hinweise,
+aber **keinen Nachweis** dafür, dass ein Text von einer bestimmten KI stammt.
 
-## Struktur
+Die Verarbeitung erfolgt vollständig lokal im Browser. Die daisyUI-CSS-Datei
+liegt weiterhin lokal unter `static/assets/css/daisyui.css`.
 
-- `index.html` – semantisches Dokument und UI-Struktur
-- `assets/css/daisyui.css` – lokal eingebundene daisyUI-Stile
-- `assets/css/style.css` – Layout und Anpassungen für daisyUI
-- `assets/js/constants.js` – Unicode-Mengen, Ersetzungsregeln und Hilfsfunktionen
-- `assets/js/cleaner.js` – Erkennung, Bereinigung und Berichtsdaten
-- `assets/js/files.js` – Dateinamen und Download-Ziele
-- `assets/js/app.js` – Dateiupload, Interaktion und DOM-Darstellung
-- `tests/cleaner.test.mjs` – Regressionstests für Bereinigung und Upload-Metadaten
-
-## Lokal testen
-
-Die Anwendung verwendet native ES-Module. Daher funktioniert sie nicht direkt
-über `file://`, sondern benötigt einen lokalen Webserver, zum Beispiel:
+## Entwicklung
 
 ```sh
-python3 -m http.server 8080
+npm install
+npm run dev
 ```
 
-Danach `http://localhost:8080` im Browser öffnen.
-
-## Tests ausführen
+## Prüfen und bauen
 
 ```sh
-node --test
+npm run check
+npm test
+npm run build
 ```
 
-## GitHub Pages veröffentlichen
+## GitHub Pages
 
-1. Repository zu GitHub pushen.
-2. In **Settings → Pages** bei **Build and deployment** die Quelle
-   **Deploy from a branch** auswählen.
-3. Den gewünschten Branch auswählen, normalerweise `main`.
-4. Als Ordner `/(root)` auswählen und speichern.
+Das Projekt nutzt `@sveltejs/adapter-static`, erzeugt einen `404.html`-Fallback
+und kopiert `.nojekyll` in den Build. Die Routen werden mit einem abschließenden
+Slash erzeugt. Standardmäßig ist die Anwendung für GitHub Pages unter
+`/ki-textwasserzeichen-pruefer` konfiguriert. Für einen anderen Deployment-Pfad
+kann beim Build `BASE_PATH` gesetzt werden:
 
-GitHub Pages stellt anschließend `index.html` bereit. Es ist kein Build-Schritt
-und keine serverseitige Verarbeitung erforderlich.
+```sh
+BASE_PATH=/mein-repository npm run build
+```
+
+Die statischen Dateien liegen nach dem Build in `build/`; diesen Ordner als
+GitHub-Pages-Artefakt veröffentlichen.

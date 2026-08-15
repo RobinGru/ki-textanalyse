@@ -41,7 +41,7 @@ export const names = new Map([
       [0x00a0, 'NO-BREAK SPACE'], [0x1680, 'OGHAM SPACE MARK'], [0x2000, 'EN QUAD'], [0x2001, 'EM QUAD'], [0x2002, 'EN SPACE'], [0x2003, 'EM SPACE'], [0x2004, 'THREE-PER-EM SPACE'], [0x2005, 'FOUR-PER-EM SPACE'], [0x2006, 'SIX-PER-EM SPACE'], [0x2007, 'FIGURE SPACE'], [0x2008, 'PUNCTUATION SPACE'], [0x2009, 'THIN SPACE'], [0x200a, 'HAIR SPACE'], [0x202f, 'NARROW NO-BREAK SPACE'], [0x205f, 'MEDIUM MATHEMATICAL SPACE'], [0x3000, 'IDEOGRAPHIC SPACE']
     ]);
 
-export const codepoints = (text) => Array.from(text);
+export const codepoints = (text: string): string[] => Array.from(text);
 export const isPrivateUse = (cp) => (cp >= 0xe000 && cp <= 0xf8ff) || (cp >= 0xf0000 && cp <= 0xffffd) || (cp >= 0x100000 && cp <= 0x10fffd);
 export const isControl = (cp) => (cp >= 0x00 && cp <= 0x1f && ![0x09, 0x0a, 0x0d].includes(cp)) || (cp >= 0x7f && cp <= 0x9f);
 export const isStrip = (cp) => stripCodepoints.has(cp) || (cp >= 0xe0100 && cp < 0xe01f0) || (cp >= 0xe0001 && cp <= 0xe007f) || isPrivateUse(cp);

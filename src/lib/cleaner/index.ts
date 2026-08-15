@@ -1,5 +1,35 @@
 import { codepoints, isTag, confusables, isLatin, isCyrillicOrGreek, isPrivateUse, isControl, isEmojiBase, emojiGlue, scriptJoiners, isJoiningLetter, mongolianFvs, isMongolianLetter, khmerVowels, isKhmerLetter, hangulFillers, isHangulJamo, orthographicCf, lineSeparators, isStrip, spaces, isCjk, isFrenchSpacing, typography, isGlue, names } from './constants.js';
 
+export interface CleaningOptions {
+  nfkc: boolean;
+  aggressive: boolean;
+  normalizeSpaces: boolean;
+  stripGlue: boolean;
+  typography: boolean;
+}
+
+export interface Finding {
+  position: number;
+  codepoint: string;
+  category: string;
+  action: string;
+  replacement: string | null;
+  reason: string;
+}
+
+export interface CleaningReport {
+  input_length: number;
+  output_length: number;
+  removed: Record<string, number>;
+  replaced: Record<string, number>;
+  removed_count: number;
+  replaced_count: number;
+  hidden_messages: string[];
+  unmatched_bidi_count: number;
+  suspicious_lines: Array<{ line: number; count: number; density: number }>;
+  findings: Finding[];
+}
+
 export function mixedConfusableIndexes(chars) {
       const indexes = new Set();
       let start = 0;
@@ -105,7 +135,7 @@ export function decide(character, previousKept, options, nextCharacter = '', tru
     }
 
     function suspiciousLines(chars, findings) {
-      const positions = new Set(findings.map((finding) => finding.position));
+      const positions = new Set<number>(findings.map((finding) => finding.position));
       const lines = [];
       let start = 0;
       let lineNumber = 1;
@@ -120,7 +150,7 @@ export function decide(character, previousKept, options, nextCharacter = '', tru
       return lines;
     }
 
-export function cleanText(text, options) {
+export function cleanText(text: string, options: CleaningOptions): [string, CleaningReport] {
       const removed = new Map();
       const replaced = new Map();
       const output = [];
@@ -129,7 +159,7 @@ export function cleanText(text, options) {
       const chars = codepoints(text);
       const tags = tagAnalysis(text);
       const confusableIndexes = mixedConfusableIndexes(chars);
-      const findings = [];
+      const findings: Finding[] = [];
       for (let index = 0; index < chars.length; index += 1) {
         const character = chars[index];
         const [action, result] = decide(character, previousKept, options, chars[index + 1] ?? '', tags.trusted.has(index), confusableIndexes.has(index));
