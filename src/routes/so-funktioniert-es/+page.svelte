@@ -3,7 +3,7 @@
   import Header from '$lib/components/Header.svelte';
 </script>
 
-<svelte:head><title>Wie funktioniert die Erkennung? – KI-Textwasserzeichen-Prüfer</title></svelte:head>
+<svelte:head><title>Wie funktioniert die Erkennung? – KI-Textanalyse</title></svelte:head>
 
 <Header active="how" title="Wie funktioniert die Erkennung?" description="Die Prüfung sucht im eingegebenen Text nach technischen Mustern, die zur Textverschleierung oder als potenzielle Wasserzeichen eingesetzt werden können." />
 

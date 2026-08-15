@@ -1,7 +1,6 @@
-const CACHE_NAME = 'ki-textwasserzeichen-pruefer-v1';
+const CACHE_NAME = 'ki-textanalyse-v1';
 const APP_SHELL = [
   './',
-  './assets/css/daisyui.css',
   './assets/css/style.css'
 ];
 

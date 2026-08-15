@@ -3,7 +3,7 @@
   import Header from '$lib/components/Header.svelte';
 </script>
 
-<svelte:head><title>Grenzen & Datenschutz – KI-Textwasserzeichen-Prüfer</title></svelte:head>
+<svelte:head><title>Grenzen & Datenschutz – KI-Textanalyse</title></svelte:head>
 
 <Header active="limits" title="Grenzen & Datenschutz" description="Die Prüfung hilft dabei, potenzielle Textwasserzeichen und Verschleierungen einzuordnen – sie ist kein Herkunftsnachweis für KI-Inhalte." />
 

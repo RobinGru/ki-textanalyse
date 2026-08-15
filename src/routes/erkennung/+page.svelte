@@ -3,7 +3,7 @@
   import Header from '$lib/components/Header.svelte';
 </script>
 
-<svelte:head><title>Erkannte Muster – KI-Textwasserzeichen-Prüfer</title></svelte:head>
+<svelte:head><title>Erkannte Muster – KI-Textanalyse</title></svelte:head>
 
 <Header active="detection" title="Welche Wasserzeichenmuster werden erkannt?" description="Die Anwendung erkennt technische Auffälligkeiten, die zur Textverschleierung oder als potenzielle Wasserzeichen eingesetzt werden können." />
 

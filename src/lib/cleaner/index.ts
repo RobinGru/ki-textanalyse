@@ -1,62 +1,9 @@
 import { codepoints, isTag, confusables, isLatin, isCyrillicOrGreek, isPrivateUse, isControl, isEmojiBase, isEmojiModifier, isVariationSelector, isHan, emojiGlue, scriptJoiners, isJoiningLetter, mongolianFvs, isMongolianLetter, khmerVowels, isKhmerLetter, hangulFillers, isHangulJamo, orthographicCf, lineSeparators, isStrip, spaces, isCjk, isFrenchSpacing, typography, isGlue, names } from './constants.js';
 import { ideographicVariationDataVersion, registeredIdeographicVariationSequences, registeredVariationSequences, unicodeVariationDataVersion } from './generated-variation-sequences.js';
 import { confusableDataVersion, confusableMappings, maxConfusableSourceLength } from './generated-confusables.js';
+import type { CleaningOptions, CleaningReport, DomainSpoofFinding, Finding, FindingConfidence, FindingStatus, ForensicFinding, NormalizationFinding, ZeroWidthPayload } from './types.js';
 
-export interface CleaningOptions {
-  nfc: boolean;
-  nfkc: boolean;
-  aggressive: boolean;
-  normalizeSpaces: boolean;
-  normalizeTabs: boolean;
-  stripGlue: boolean;
-  typography: boolean;
-}
-
-export interface NormalizationFinding {
-  start: number;
-  end: number;
-  form: 'NFC' | 'NFKC';
-  before: string;
-  after: string;
-}
-
-export interface Finding {
-  position: number;
-  codepoint: string;
-  category: string;
-  action: string;
-  replacement: string | null;
-  reason: string;
-}
-
-export type FindingConfidence = 'info' | 'low' | 'medium' | 'high';
-export type FindingStatus = 'complete' | 'incomplete' | 'invalid' | 'registered' | 'unusual';
-
-/**
- * A grouped forensic result. Ranges are code-point indexes and `end` is exclusive;
- * UTF-16 code-unit offsets are supplied separately for APIs that require them.
- */
-export interface ForensicFinding {
-  kind: string;
-  start: number;
-  end: number;
-  code_unit_start: number;
-  code_unit_end: number;
-  raw_codepoints: string[];
-  confidence: FindingConfidence;
-  status: FindingStatus;
-  carrier?: string;
-  decoded_text?: string;
-  bytes_hex?: string;
-  encoding?: string;
-  printable_ratio?: number;
-  /** Escaped logical order; directional controls are rendered as unambiguous labels. */
-  logical_preview?: string;
-  /** Raw, isolated browser rendering of the affected Bidi scope (UAX #9). */
-  visual_preview?: string;
-  context?: 'url' | 'filename' | 'code';
-  detail?: string;
-}
+export type { CleaningOptions, CleaningReport, DomainSpoofFinding, Finding, FindingConfidence, FindingStatus, ForensicFinding, NormalizationFinding, ZeroWidthPayload } from './types.js';
 
 export const MAX_PAYLOAD_BYTES = 4_096;
 
@@ -190,38 +137,6 @@ export function identifierSecurityAnalysis(text: string): ForensicFinding[] {
 }
 
 /** A decoded zero-width binary payload. `end` is exclusive. */
-export interface ZeroWidthPayload {
-  payload: string;
-  start: number;
-  end: number;
-}
-
-export interface DomainSpoofFinding {
-  domain: string;
-  label: string;
-  skeleton: string;
-  character_indexes: number[];
-  risk: 'medium' | 'high';
-  reason: 'mixed-script-confusable' | 'punycode-label';
-}
-
-export interface CleaningReport {
-  input_length: number;
-  output_length: number;
-  removed: Record<string, number>;
-  replaced: Record<string, number>;
-  removed_count: number;
-  replaced_count: number;
-  hidden_messages: string[];
-  normalizations: NormalizationFinding[];
-  zero_width_payloads: ZeroWidthPayload[];
-  domain_spoofs: DomainSpoofFinding[];
-  unmatched_bidi_count: number;
-  suspicious_lines: Array<{ line: number; count: number; density: number }>;
-  findings: Finding[];
-  forensic_findings: ForensicFinding[];
-}
-
 function codeUnitOffsets(chars: string[]): number[] {
   const offsets = [0];
   for (const character of chars) offsets.push(offsets[offsets.length - 1] + character.length);

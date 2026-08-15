@@ -1,16 +1,17 @@
-# KI-Textwasserzeichen-Prüfer
+# KI-Textanalyse
 
 > [!TIP]
-> **[Prüfer jetzt direkt im Browser öffnen →](https://robingru.github.io/ki-textwasserzeichen-pruefer/)**
+> **[KI-Textanalyse direkt im Browser öffnen →](https://robingru.github.io/ki-textanalyse/)**
 >
 > Keine Installation und kein Upload erforderlich: Text einfügen und lokal prüfen.
 
-[![GitHub Pages](https://img.shields.io/badge/Demo-GitHub%20Pages-181717?logo=github)](https://robingru.github.io/ki-textwasserzeichen-pruefer/)
+[![GitHub Pages](https://img.shields.io/badge/Demo-GitHub%20Pages-181717?logo=github)](https://robingru.github.io/ki-textanalyse/)
 [![SvelteKit](https://img.shields.io/badge/SvelteKit-TypeScript-ff3e00?logo=svelte)](https://kit.svelte.dev/)
 
-**KI-Textwasserzeichen-Prüfer** untersucht kopierten Text auf technische
+**KI-Textanalyse** ist ein lokales Werkzeug für technische Textspuren und
+künftig auch stilistische KI-Hinweise. Der aktuelle Schwerpunkt liegt auf
 Auffälligkeiten, die zur Textverschleierung oder als potenzielle
-Textwasserzeichen genutzt werden können. Dazu zählen unsichtbare Unicode-Zeichen,
+Textwasserzeichen genutzt werden können: unsichtbare Unicode-Zeichen,
 Richtungssteuerungen, Steuerzeichen, Lookalikes und ungewöhnliche Leerzeichen.
 
 Das Werkzeug eignet sich zum Prüfen von Texten aus **ChatGPT, Claude, Gemini**
@@ -24,16 +25,22 @@ geeignet.**
 > Auch menschlich geschriebene oder absichtlich formatierte Texte können solche
 > Unicode-Muster enthalten.
 
-Die Textverarbeitung erfolgt vollständig lokal im Browser. Die daisyUI-Stile
-liegen als statisches Asset unter `static/assets/css/daisyui.css`. Das globale
-SvelteKit-Layout verlinkt diese Datei; `@sveltejs/adapter-static` kopiert sie
-unverändert in den veröffentlichten Build. Sie wird nicht von Vite gebündelt.
+## Stilistische KI-Heuristiken
+
+Stilistische Hinweise auf KI-Texte sind als künftige, getrennt ausgewiesene
+Heuristik geplant. Sie werden technische Funde nicht ersetzen und können weder
+menschliche noch KI-Urheberschaft zuverlässig beweisen. Bis dahin analysiert
+die Anwendung ausschließlich die nachfolgend beschriebenen technischen Muster.
+
+Die Textverarbeitung erfolgt vollständig lokal im Browser. Tailwind CSS und
+daisyUI werden über das Vite-Plugin aus npm-Abhängigkeiten kompiliert; die
+resultierende CSS-Datei wird mit dem SvelteKit-Build ausgeliefert.
 
 ## Demo
 
-**[KI-Textwasserzeichen-Prüfer öffnen →](https://robingru.github.io/ki-textwasserzeichen-pruefer/)**
+**[KI-Textanalyse öffnen →](https://robingru.github.io/ki-textanalyse/)**
 
-## Was wird erkannt und bereinigt?
+## Aktuell: technische Muster erkennen und bereinigen
 
 | Kategorie | Beispiele | Verhalten |
 | --- | --- | --- |
@@ -80,7 +87,8 @@ verändern. Prüfe das Ergebnis deshalb vor einer Veröffentlichung.
 
 - [SvelteKit](https://kit.svelte.dev/) mit TypeScript
 - `@sveltejs/adapter-static` für statisches Hosting
-- [daisyUI](https://daisyui.com/) als lokal eingebundene CSS-Datei
+- [Tailwind CSS](https://tailwindcss.com/) und [daisyUI](https://daisyui.com/)
+  über die Vite-CSS-Pipeline
 - [Vitest](https://vitest.dev/) für die Unicode- und Dateinamen-Tests
 - GitHub Pages für die Veröffentlichung
 - Web-App-Manifest und Service Worker für Offline-Nutzung und Installation als PWA
@@ -133,7 +141,7 @@ Bei jedem Push auf `main` startet der Workflow
 5. den Build bei GitHub Pages veröffentlichen
 
 Die veröffentlichte Seite ist unter
-<https://robingru.github.io/ki-textwasserzeichen-pruefer/> erreichbar.
+<https://robingru.github.io/ki-textanalyse/> erreichbar.
 
 Für einen anderen Repository-Pfad kann der Build über `BASE_PATH` angepasst
 werden:
@@ -152,7 +160,7 @@ src/
 │   └── files.ts        # Dateinamen für Downloads
 └── routes/             # Prüfer- und Informationsseiten
 static/
-└── assets/css/         # lokale daisyUI- und App-Stile
+└── assets/css/         # zusätzliche App-Stile
 .github/workflows/
 └── deploy-pages.yml    # Prüfung und Veröffentlichung
 ```

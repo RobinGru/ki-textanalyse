@@ -1,7 +1,7 @@
 {
-  "name": "KI-Textwasserzeichen-Prüfer",
-  "short_name": "Textprüfung",
-  "description": "Prüft Texte lokal auf technische Auffälligkeiten und potenzielle Textwasserzeichen.",
+  "name": "KI-Textanalyse",
+  "short_name": "KI-Textanalyse",
+  "description": "Prüft Texte lokal auf technische Wasserzeichen; stilistische KI-Heuristiken folgen.",
   "lang": "de",
   "start_url": "./",
   "scope": "./",
