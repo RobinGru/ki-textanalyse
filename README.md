@@ -18,6 +18,11 @@ Webseiten, Dokumenten oder Messengern.
 > Auch menschlich geschriebene oder absichtlich formatierte Texte können solche
 > Unicode-Muster enthalten.
 
+Die Textverarbeitung erfolgt vollständig lokal im Browser. Die daisyUI-Stile
+liegen als statisches Asset unter `static/assets/css/daisyui.css`. Das globale
+SvelteKit-Layout verlinkt diese Datei; `@sveltejs/adapter-static` kopiert sie
+unverändert in den veröffentlichten Build. Sie wird nicht von Vite gebündelt.
+
 ## Demo
 
 **[KI-Textwasserzeichen-Prüfer öffnen →](https://robingru.github.io/ki-textwasserzeichen-pruefer/)**
