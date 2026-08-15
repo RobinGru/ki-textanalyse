@@ -13,10 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@latest
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
       - name: Scan repository history and changes
-        uses: gitleaks/gitleaks-action@latest
+        uses: gitleaks/gitleaks-action@v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
