@@ -10,7 +10,8 @@ Richtungssteuerungen, Steuerzeichen, Lookalikes und ungewöhnliche Leerzeichen.
 
 Das Werkzeug eignet sich zum Prüfen von Texten aus **ChatGPT, Claude, Gemini**
 und anderen KI-Assistenten – ebenso wie für beliebige kopierte Inhalte aus
-Webseiten, Dokumenten oder Messengern.
+Webseiten, Dokumenten oder Messengern. **Besonders gut für deutsche Texte
+geeignet.**
 
 > [!IMPORTANT]
 > Ein Fund ist ein technischer Hinweis, **kein Nachweis**, dass ein Text von
@@ -55,7 +56,7 @@ Einzelmarkierungen begrenzt, damit die Bedienung flüssig bleibt.
 Alle Optionen sind standardmäßig aktiv. Insbesondere die strenge
 Verkettungsbereinigung und ASCII-Typografie können legitime Emoji-Sequenzen,
 nichtlateinische Schriften, Quellcode oder bewusst gewählte Gestaltung
-verändern. Prüfe das Ergebnis vor einer Veröffentlichung.
+verändern. Prüfe das Ergebnis deshalb vor einer Veröffentlichung.
 
 ## Datenschutz
 
@@ -72,6 +73,7 @@ verändern. Prüfe das Ergebnis vor einer Veröffentlichung.
 - [daisyUI](https://daisyui.com/) als lokal eingebundene CSS-Datei
 - [Vitest](https://vitest.dev/) für die Unicode- und Dateinamen-Tests
 - GitHub Pages für die Veröffentlichung
+- Web-App-Manifest und Service Worker für Offline-Nutzung und Installation als PWA
 
 ## Lokale Entwicklung
 
@@ -137,4 +139,4 @@ static/
 Dieses Projekt steht unter der [MIT-Lizenz](LICENSE).
 
 Nutze die Ergebnisse als technische Prüfhilfe. Das Projekt trifft keine Aussage
-über Urheberschaft, Absicht oder Qualität eines Textes.
+über die Urheberschaft, Absicht oder Qualität eines Textes.

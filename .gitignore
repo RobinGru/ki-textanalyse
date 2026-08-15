@@ -6,6 +6,9 @@ node_modules/
 .vite/
 build/
 
+# Generated static site (built and deployed by GitHub Actions)
+docs/
+
 # Environment files and local secrets
 .env
 .env.*

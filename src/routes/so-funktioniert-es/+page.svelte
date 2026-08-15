@@ -5,7 +5,7 @@
 
 <svelte:head><title>Wie funktioniert die Erkennung? – KI-Textwasserzeichen-Prüfer</title></svelte:head>
 
-<Header active="how" title="Wie funktioniert die Erkennung?" description="Die Prüfung sucht in deinem Text nach technischen Mustern, die für Textverschleierung oder potenzielle Wasserzeichen verwendet werden können." />
+<Header active="how" title="Wie funktioniert die Erkennung?" description="Die Prüfung sucht im eingegebenen Text nach technischen Mustern, die zur Textverschleierung oder als potenzielle Wasserzeichen eingesetzt werden können." />
 
 <section class="info-page" aria-labelledby="ablauf-title">
   <h2 id="ablauf-title" class="text-xl font-semibold">In drei Schritten</h2>
@@ -16,4 +16,4 @@
   </div>
 </section>
 
-<section class="card info-card bg-base-100 shadow-sm" aria-labelledby="optionen-title"><div class="card-body"><h2 id="optionen-title" class="card-title">Was die Prüfung aussagen kann</h2><ul><li>Sie macht unsichtbare Unicode-Zeichen, Richtungssteuerungen und ähnliche Verschleierungen sichtbar.</li><li>Sie kann verdächtige technische Muster bereinigen und die Änderungen transparent markieren.</li><li>Sie kann <strong>nicht</strong> beweisen, dass ein Text von einer bestimmten KI stammt oder von ihr verändert wurde.</li><li>Die Optionen erlauben es, die Bereinigung an Sprache, Typografie und Format des Textes anzupassen.</li></ul><div class="card-actions justify-end"><a class="btn btn-primary" href={`${base}/`}>Text auf Wasserzeichen prüfen</a></div></div></section>
+<section class="card info-card bg-base-100 shadow-sm" aria-labelledby="optionen-title"><div class="card-body"><h2 id="optionen-title" class="card-title">Was die Prüfung aussagen kann</h2><ul><li>Sie macht unsichtbare Unicode-Zeichen, Richtungssteuerungen und ähnliche Verschleierungen sichtbar.</li><li>Sie kann verdächtige technische Muster bereinigen und Änderungen transparent markieren.</li><li>Sie kann <strong>nicht</strong> nachweisen, dass ein Text von einer bestimmten KI stammt oder von ihr verändert wurde.</li><li>Mit den Optionen lässt sich die Bereinigung an Sprache, Typografie und Format des Textes anpassen.</li></ul><div class="card-actions justify-end"><a class="btn btn-primary" href={`${base}/`}>Text auf Wasserzeichen prüfen</a></div></div></section>

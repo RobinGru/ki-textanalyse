@@ -32,6 +32,31 @@ describe('cleanText', () => {
     expect(clean('p\u0430y')[0]).toBe('pay');
     expect(clean('привет мир')[0]).toBe('привет мир');
   });
+
+  it('preserves emoji ZWJ sequences unless strict cleanup is enabled', () => {
+    const family = '👩‍👩‍👧‍👦';
+    expect(clean(family)[0]).toBe('👩👩👧👦');
+    expect(cleanText(family, { ...options, stripGlue: false })[0]).toBe(family);
+  });
+
+  it('preserves non-Latin scripts and normalizes combining characters', () => {
+    expect(clean('العربية 世界 हिन्दी')[0]).toBe('العربية 世界 हिन्दी');
+    const [output, report] = clean('cafe\u0301');
+    expect(output).toBe('café');
+    expect(report.replaced.NFKC_normalize).toBe(1);
+  });
+
+  it('handles very large inputs while reporting every removed character', () => {
+    const input = 'Wort\u200B'.repeat(30_000);
+    const [output, report] = clean(input);
+    expect(output).toBe('Wort'.repeat(30_000));
+    expect(report.removed_count).toBe(30_000);
+  });
+
+  it('cleans common artifacts from copied PDF, Office, and messenger text', () => {
+    const input = '\ufeff„Bericht“\u00a0–\u00a0Teil\u2028Hallo\u200b\u200e Welt';
+    expect(clean(input)[0]).toBe('"Bericht" - Teil\nHallo Welt');
+  });
 });
 
 describe('fileMetadata', () => {
