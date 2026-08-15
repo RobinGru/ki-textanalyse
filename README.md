@@ -134,5 +134,7 @@ static/
 
 ## Lizenz und Verantwortung
 
+Dieses Projekt steht unter der [MIT-Lizenz](LICENSE).
+
 Nutze die Ergebnisse als technische Prüfhilfe. Das Projekt trifft keine Aussage
 über Urheberschaft, Absicht oder Qualität eines Textes.
